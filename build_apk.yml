@@ -1,0 +1,46 @@
+name: Build MooD APK (Android 6 to 15+)
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Gradle & Generate Wrapper
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq gradle
+          gradle wrapper --gradle-version 8.7
+          chmod +x gradlew
+
+      - name: Build Signed Release APK
+        run: ./gradlew assembleRelease
+
+      - name: Verify Final APK Signature
+        run: |
+          APKSIGNER=$(find $ANDROID_HOME/build-tools -name apksigner | sort -V | tail -n 1)
+          APK_PATH="app/build/outputs/apk/release/app-release.apk"
+          $APKSIGNER verify --verbose "$APK_PATH"
+          cp "$APK_PATH" "MooD-CertSign-Studio-v1.0.apk"
+
+      - name: Upload Ready APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: MooD-CertSign-Studio-APK
+          path: MooD-CertSign-Studio-v1.0.apk
+          if-no-files-found: error
